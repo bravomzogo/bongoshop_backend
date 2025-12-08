@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Product, ProductImage, Rating
 from .serializers import (
@@ -85,7 +86,7 @@ class ProductCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         if not self.request.user.is_email_verified:
-            raise PermissionError("Email must be verified to create products")
+            raise PermissionDenied("Email must be verified to create products")
         serializer.save()
     
     def create(self, request, *args, **kwargs):
@@ -150,11 +151,11 @@ class RatingCreateView(generics.CreateAPIView):
         
         # Prevent sellers from rating their own products
         if product.seller == self.request.user:
-            raise PermissionError("You cannot rate your own product")
+            raise PermissionDenied("You cannot rate your own product")
         
         # Check if user already rated this product
         if Rating.objects.filter(product=product, buyer=self.request.user).exists():
-            raise PermissionError("You have already rated this product")
+            raise ValidationError({"detail": "You have already rated this product"})
         
         serializer.save()
 
@@ -174,6 +175,17 @@ class RatingDeleteView(generics.DestroyAPIView):
     
     def get_queryset(self):
         return Rating.objects.filter(buyer=self.request.user)
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ProductRatingsView(generics.ListAPIView):
@@ -228,7 +240,7 @@ class ReelCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         if not self.request.user.is_email_verified:
-            raise PermissionError("Email must be verified to create reels")
+            raise PermissionDenied("Email must be verified to create reels")
         serializer.save()
 
 

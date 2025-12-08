@@ -1,7 +1,7 @@
 # products/serializers.py
 
 from rest_framework import serializers
-from .models import Product, ProductImage, Rating, Reel, ReelComment
+from .models import Product, ProductImage, Rating, Reel, ReelComment, ReelLike
 from accounts.serializers import UserSerializer
 import cloudinary.uploader
 
@@ -11,6 +11,25 @@ class ProductImageSerializer(serializers.ModelSerializer):
         model = ProductImage
         fields = ('id', 'image_url', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    buyer = UserSerializer(read_only=True)
+    buyer_name = serializers.CharField(source='buyer.shop_name', read_only=True)
+
+    class Meta:
+        model = Rating
+        fields = ('id', 'product', 'buyer', 'buyer_name', 'rating', 'comment', 'created_at')
+        read_only_fields = ('buyer',)
+
+    def validate_rating(self, value):
+        if not 1 <= value <= 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5")
+        return value
+
+    def create(self, validated_data):
+        validated_data['buyer'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class ProductListSerializer(serializers.ModelSerializer):
@@ -32,27 +51,28 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     average_rating = serializers.ReadOnlyField()
     total_ratings = serializers.ReadOnlyField()
     images = ProductImageSerializer(many=True, read_only=True)
+    ratings = RatingSerializer(many=True, read_only=True)  # ← ADDED THIS LINE
 
     class Meta:
         model = Product
         fields = ('id', 'name', 'description', 'price', 'region', 'condition',
                   'phone_number', 'images', 'image_url', 'seller', 'average_rating',
-                  'total_ratings', 'created_at', 'updated_at', 'is_active')
+                  'total_ratings', 'ratings', 'created_at', 'updated_at', 'is_active')  # ← ADDED 'ratings'
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
-# FIXED: Create separate serializer for ProductCreate response
 class ProductCreateResponseSerializer(serializers.ModelSerializer):
     seller = UserSerializer(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_ratings = serializers.ReadOnlyField()
+    ratings = RatingSerializer(many=True, read_only=True)  # ← ADDED THIS LINE
     
     class Meta:
         model = Product
         fields = ('id', 'name', 'description', 'price', 'region', 'condition',
                   'phone_number', 'images', 'image_url', 'seller', 'average_rating',
-                  'total_ratings', 'created_at', 'updated_at', 'is_active')
+                  'total_ratings', 'ratings', 'created_at', 'updated_at', 'is_active')  # ← ADDED 'ratings'
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
@@ -113,28 +133,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         """Use the response serializer for output"""
         return ProductCreateResponseSerializer(instance, context=self.context).data
 
-
-class RatingSerializer(serializers.ModelSerializer):
-    buyer = UserSerializer(read_only=True)
-    buyer_name = serializers.CharField(source='buyer.shop_name', read_only=True)
-
-    class Meta:
-        model = Rating
-        fields = ('id', 'product', 'buyer', 'buyer_name', 'rating', 'comment', 'created_at')
-        read_only_fields = ('buyer',)
-
-    def validate_rating(self, value):
-        if not 1 <= value <= 5:
-            raise serializers.ValidationError("Rating must be between 1 and 5")
-        return value
-
-    def create(self, validated_data):
-        validated_data['buyer'] = self.context['request'].user
-        return super().create(validated_data)
-
-
-
-# products/serializers.py - Only showing the updated ReelListSerializer
 
 class ReelListSerializer(serializers.ModelSerializer):
     seller = UserSerializer(read_only=True)
