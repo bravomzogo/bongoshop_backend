@@ -144,9 +144,9 @@ class ReelListSerializer(serializers.ModelSerializer):
         model = Reel
         fields = ('id', 'title', 'description', 'price', 'video_url', 'thumbnail_url',
                   'duration', 'views_count', 'likes_count', 'comments_count', 
-                  'shares_count', 'seller', 'is_liked', 'created_at')
+                  'shares_count', 'seller', 'is_liked', 'created_at', 'phone_number')
         read_only_fields = ('id', 'views_count', 'likes_count', 'comments_count', 
-                          'shares_count', 'created_at')
+                          'shares_count', 'created_at', 'phone_number')
     
     def get_is_liked(self, obj):
         request = self.context.get('request')
@@ -161,7 +161,7 @@ class ReelCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Reel
-        fields = ('title', 'description', 'price', 'video', 'thumbnail')
+        fields = ('title', 'description', 'price', 'video', 'thumbnail', 'phone_number')
     
     def create(self, validated_data):
         video_file = validated_data.pop('video')

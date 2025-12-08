@@ -96,6 +96,8 @@ class Reel(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    phone_number = models.CharField(max_length=20, blank=True)  # ← ADD THIS LINE if it's missing
+
     
     class Meta:
         ordering = ['-created_at']
