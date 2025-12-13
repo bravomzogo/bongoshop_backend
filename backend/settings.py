@@ -170,13 +170,13 @@ DATABASES = {
         "PASSWORD": os.getenv("PGPASSWORD"),
         "HOST": os.getenv("PGHOST"),
         "PORT": os.getenv("PGPORT", "5432"),
-        # Critical: Disable Unix socket lookup
         "OPTIONS": {
-            "sslmode": "require",  # Render requires SSL
+            "sslmode": "require",  # Required by Render
         },
-        # Force TCP connection (prevents socket attempt)
+        # These two lines prevent the socket warning
+        "HOST": os.getenv("PGHOST"),  # Explicitly force TCP host
+        "PORT": os.getenv("PGPORT", "5432"),  # Force port
         "CONN_MAX_AGE": 60,
-        "DISABLE_SERVER_SIDE_CURSORS": True,  # Recommended for Render
     }
 }
 
