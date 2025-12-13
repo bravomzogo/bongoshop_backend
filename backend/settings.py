@@ -153,30 +153,10 @@ TEMPLATES = [
 # ----------------------------------------------------
 # DATABASE (SQLite default)
 # ----------------------------------------------------
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
-import os
-
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("PGDATABASE"),
-        "USER": os.getenv("PGUSER"),
-        "PASSWORD": os.getenv("PGPASSWORD"),
-        "HOST": os.getenv("PGHOST"),
-        "PORT": os.getenv("PGPORT", "5432"),
-        "OPTIONS": {
-            "sslmode": "require",  # Required by Render
-        },
-        # These two lines prevent the socket warning
-        "HOST": os.getenv("PGHOST"),  # Explicitly force TCP host
-        "PORT": os.getenv("PGPORT", "5432"),  # Force port
-        "CONN_MAX_AGE": 60,
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
