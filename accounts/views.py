@@ -24,9 +24,23 @@ class RegisterView(generics.CreateAPIView):
         send_verification_email(user.email, code)
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        # Handle FormData for file uploads
+        if request.content_type.startswith('multipart/form-data'):
+            # Extract data from FormData
+            data = request.POST.copy()
+            files = request.FILES
+        else:
+            data = request.data
+            files = None
+        
+        # Merge files into data
+        if files and 'profile_picture' in files:
+            data['profile_picture'] = files['profile_picture']
+        
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        
         return Response({
             'detail': 'User created. Verification code sent to email.',
             'email': serializer.validated_data['email']
@@ -67,6 +81,8 @@ class LoginView(APIView):
                 return Response({'detail': 'Email not verified. Please verify your email first.'}, status=403)
             
             refresh = RefreshToken.for_user(user)
+            
+            # Get full profile picture URL
             user_data = UserSerializer(user).data
             
             return Response({
@@ -140,3 +156,63 @@ class UserProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+    
+    def put(self, request):
+        user = request.user
+        
+        # Handle profile picture update
+        if request.content_type.startswith('multipart/form-data'):
+            if 'profile_picture' in request.FILES:
+                user.profile_picture = request.FILES['profile_picture']
+                user.save()
+                return Response(UserSerializer(user).data)
+            else:
+                return Response({'detail': 'No profile picture provided'}, status=400)
+        
+        # Handle other profile updates (non-file fields)
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class UserSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+    
+    def put(self, request):
+        user = request.user
+        
+        # Handle file upload separately
+        if request.content_type.startswith('multipart/form-data'):
+            data = request.POST.copy()
+            files = request.FILES
+        else:
+            data = request.data
+            files = None
+        
+        # Merge files into data
+        if files and 'profile_picture' in files:
+            data['profile_picture'] = files['profile_picture']
+        
+        serializer = UserUpdateSerializer(user, data=data, partial=True)
+        
+        if serializer.is_valid():
+            try:
+                serializer.save()
+                # Return updated user data
+                updated_user = UserSerializer(user).data
+                return Response({
+                    'detail': 'Profile updated successfully',
+                    'user': updated_user
+                })
+            except serializers.ValidationError as e:
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
