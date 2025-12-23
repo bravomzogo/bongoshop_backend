@@ -8,7 +8,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.cache import cache
 from .models import User
-from .serializers import RegisterSerializer, UserSerializer
+# IMPORT ALL SERIALIZERS
+from .serializers import RegisterSerializer, UserSerializer, UserUpdateSerializer, LoginSerializer
 from .utils import generate_code, send_verification_email, send_support_email
 
 CODE_TTL = 60 * 15  # 15 minutes
@@ -160,23 +161,34 @@ class UserProfileView(APIView):
     def put(self, request):
         user = request.user
         
-        # Handle profile picture update
+        # Handle file upload separately
         if request.content_type.startswith('multipart/form-data'):
-            if 'profile_picture' in request.FILES:
-                user.profile_picture = request.FILES['profile_picture']
-                user.save()
-                return Response(UserSerializer(user).data)
-            else:
-                return Response({'detail': 'No profile picture provided'}, status=400)
+            data = request.POST.copy()
+            files = request.FILES
+        else:
+            data = request.data
+            files = None
         
-        # Handle other profile updates (non-file fields)
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        # Merge files into data
+        if files and 'profile_picture' in files:
+            data['profile_picture'] = files['profile_picture']
+        
+        # Use UserUpdateSerializer for profile updates
+        serializer = UserUpdateSerializer(user, data=data, partial=True)
+        
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            try:
+                serializer.save()
+                # Return updated user data
+                updated_user = UserSerializer(user).data
+                return Response({
+                    'detail': 'Profile updated successfully',
+                    'user': updated_user
+                })
+            except Exception as e:
+                return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class UserSettingsView(APIView):
@@ -212,7 +224,7 @@ class UserSettingsView(APIView):
                     'detail': 'Profile updated successfully',
                     'user': updated_user
                 })
-            except serializers.ValidationError as e:
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
