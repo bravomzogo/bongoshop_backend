@@ -185,5 +185,5 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
-# Enable static files compression
+# Enable static files compressio
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
