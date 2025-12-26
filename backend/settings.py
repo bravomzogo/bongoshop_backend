@@ -24,14 +24,15 @@ ALLOWED_HOSTS = ["*"]
 # ----------------------------------------------------
 # URL CONFIGURATION
 # ----------------------------------------------------
-ROOT_URLCONF = "backend.urls"  # replace 'backend' with your project folder
+ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"
-ASGI_APPLICATION = "backend.asgi.application"
+ASGI_APPLICATION = "backend.asgi.application"  # Fixed: should be 'backend' not 'config'
 
 # ----------------------------------------------------
 # INSTALLED APPS
 # ----------------------------------------------------
 INSTALLED_APPS = [
+    "daphne",
     # Django
     "django.contrib.admin",
     "django.contrib.auth",
@@ -45,11 +46,24 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "cloudinary",
+    "channels",  # Moved to proper place
 
     # Local apps
     "accounts",
     "products",
+    "chat",
 ]
+
+# ----------------------------------------------------
+# CHANNELS CONFIGURATION
+# ----------------------------------------------------
+# ASGI Application (already defined above, removed duplicate)
+# In-Memory (No Redis needed - Good for single server)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 # ----------------------------------------------------
 # CUSTOM USER MODEL
@@ -62,7 +76,7 @@ AUTH_USER_MODEL = "accounts.User"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # must be at top
     "django.middleware.security.SecurityMiddleware",
-    'whitenoise.middleware.WhiteNoiseMiddleware'
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # FIXED: Added comma
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -123,14 +137,28 @@ cloudinary.config(
 # STATIC FILES
 # ----------------------------------------------------
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Create the static directory if it doesn't exist
+static_dir = BASE_DIR / "static"
+if not static_dir.exists():
+    static_dir.mkdir(exist_ok=True)
+
+STATICFILES_DIRS = [static_dir]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Enable static files compression
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # ----------------------------------------------------
 # MEDIA FILES
 # ----------------------------------------------------
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Create media directory if it doesn't exist
+media_dir = BASE_DIR / "media"
+if not media_dir.exists():
+    media_dir.mkdir(exist_ok=True)
 
 # ----------------------------------------------------
 # TEMPLATES
@@ -164,26 +192,22 @@ DATABASES = {
     )
 }
 
-
-
-# Custom user model
-AUTH_USER_MODEL = 'accounts.User'
-
-
-
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = '/static/'
-
-# For production - make sure these are set
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
+# ----------------------------------------------------
+# AUTHENTICATION BACKENDS
+# ----------------------------------------------------
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
-# For media files (uploads)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# ----------------------------------------------------
+# INTERNATIONALIZATION
+# ----------------------------------------------------
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
 
-
-# Enable static files compressio
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# ----------------------------------------------------
+# DEFAULT AUTO FIELD
+# ----------------------------------------------------
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

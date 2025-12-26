@@ -1,9 +1,10 @@
-# products/serializers.py
+# products/serializers.py - Updated version without currency field
 
 from rest_framework import serializers
 from .models import Product, ProductImage, Rating, Reel, ReelComment, ReelLike
 from accounts.serializers import UserSerializer
 import cloudinary.uploader
+import json
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -33,76 +34,83 @@ class RatingSerializer(serializers.ModelSerializer):
 
 
 class ProductListSerializer(serializers.ModelSerializer):
+    seller = UserSerializer(read_only=True)
     seller_name = serializers.CharField(source='seller.shop_name', read_only=True)
-    seller_email = serializers.EmailField(source='seller.email', read_only=True)
+    seller_id = serializers.IntegerField(source='seller.id', read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_ratings = serializers.ReadOnlyField()
-    primary_image = serializers.ReadOnlyField()  # Uses the property from model
-
+    primary_image = serializers.ReadOnlyField()
+    
     class Meta:
         model = Product
-        fields = ('id', 'name', 'price','description', 'region', 'primary_image', 'seller_name',
-                  'seller_email', 'average_rating', 'total_ratings', 'created_at')
+        fields = [
+            'id', 'name', 'price', 'description', 'region', 'primary_image', 
+            'seller', 'seller_id', 'seller_name', 'average_rating', 'total_ratings', 
+            'created_at', 'condition', 'is_active'
+        ]
         read_only_fields = ('id', 'created_at')
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     seller = UserSerializer(read_only=True)
+    seller_id = serializers.IntegerField(source='seller.id', read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_ratings = serializers.ReadOnlyField()
     images = ProductImageSerializer(many=True, read_only=True)
-    ratings = RatingSerializer(many=True, read_only=True)  # ← ADDED THIS LINE
-
+    ratings = RatingSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Product
-        fields = ('id', 'name', 'description', 'price', 'region', 'condition',
-                  'phone_number', 'images', 'image_url', 'seller', 'average_rating',
-                  'total_ratings', 'ratings', 'created_at', 'updated_at', 'is_active')  # ← ADDED 'ratings'
+        fields = [
+            'id', 'name', 'description', 'price', 'region', 'condition',
+            'phone_number', 'images', 'image_url', 'seller', 'seller_id',
+            'average_rating', 'total_ratings', 'ratings', 'created_at', 
+            'updated_at', 'is_active',
+        ]
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 class ProductCreateResponseSerializer(serializers.ModelSerializer):
     seller = UserSerializer(read_only=True)
+    seller_id = serializers.IntegerField(source='seller.id', read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     average_rating = serializers.ReadOnlyField()
     total_ratings = serializers.ReadOnlyField()
-    ratings = RatingSerializer(many=True, read_only=True)  # ← ADDED THIS LINE
+    ratings = RatingSerializer(many=True, read_only=True)
     
     class Meta:
         model = Product
-        fields = ('id', 'name', 'description', 'price', 'region', 'condition',
-                  'phone_number', 'images', 'image_url', 'seller', 'average_rating',
-                  'total_ratings', 'ratings', 'created_at', 'updated_at', 'is_active')  # ← ADDED 'ratings'
+        fields = [
+            'id', 'name', 'description', 'price', 'region', 'condition',
+            'phone_number', 'images', 'image_url', 'seller', 'seller_id',
+            'average_rating', 'total_ratings', 'ratings', 'created_at', 
+            'updated_at', 'is_active', 'location_lat',
+            'location_lng', 'delivery_option', 'is_negotiable', 'is_featured'
+        ]
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
-    # Accept multiple uploaded image files from Flutter
     images = serializers.ListField(
         child=serializers.ImageField(write_only=True, allow_null=False),
         required=True,
         allow_empty=False,
-        max_length=10  # Limit to 10 images
+        max_length=10
     )
 
     class Meta:
         model = Product
         fields = (
             'name', 'description', 'price', 'region', 'condition',
-            'phone_number', 'images'
+            'phone_number', 'images', 'location_lat',
+            'location_lng', 'delivery_option', 'is_negotiable'
         )
     
     def create(self, validated_data):
-        # Remove images from validated_data (we handle them separately)
         image_files = validated_data.pop('images', [])
-
-        # Set the seller automatically
         validated_data['seller'] = self.context['request'].user
-
-        # Create the product
         product = Product.objects.create(**validated_data)
 
-        # Upload images to Cloudinary if provided
         uploaded_images = []
         for image_file in image_files:
             try:
@@ -121,7 +129,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                 )
                 uploaded_images.append(product_image)
             except Exception as e:
-                # If upload fails for any image, delete the product and all uploaded images
                 for img in uploaded_images:
                     img.delete()
                 product.delete()
@@ -130,21 +137,26 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         return product
     
     def to_representation(self, instance):
-        """Use the response serializer for output"""
         return ProductCreateResponseSerializer(instance, context=self.context).data
 
 
 class ReelListSerializer(serializers.ModelSerializer):
     seller = UserSerializer(read_only=True)
+    seller_id = serializers.IntegerField(source='seller.id', read_only=True)
     is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Reel
-        fields = ('id', 'title', 'description', 'price', 'video_url', 'thumbnail_url',
-                  'duration', 'views_count', 'likes_count', 'comments_count', 
-                  'shares_count', 'seller', 'is_liked', 'created_at', 'phone_number')
-        read_only_fields = ('id', 'views_count', 'likes_count', 'comments_count', 
-                          'shares_count', 'created_at', 'phone_number')
+        fields = [
+            'id', 'title', 'description', 'price', 'video_url', 'thumbnail_url',
+            'duration', 'views_count', 'likes_count', 'comments_count', 
+            'shares_count', 'seller', 'seller_id', 'is_liked', 'created_at', 
+            'phone_number'
+        ]
+        read_only_fields = [
+            'id', 'views_count', 'likes_count', 'comments_count', 
+            'shares_count', 'created_at', 'phone_number'
+        ]
     
     def get_is_liked(self, obj):
         request = self.context.get('request')
@@ -164,12 +176,9 @@ class ReelCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         video_file = validated_data.pop('video')
         thumbnail_file = validated_data.pop('thumbnail', None)
-        
-        # Set the seller
         validated_data['seller'] = self.context['request'].user
         
         try:
-            # Upload video to Cloudinary
             video_result = cloudinary.uploader.upload(
                 video_file,
                 folder="bongoshop/reels",
@@ -182,7 +191,6 @@ class ReelCreateSerializer(serializers.ModelSerializer):
             validated_data['video_url'] = video_result['secure_url']
             validated_data['duration'] = int(video_result.get('duration', 0))
             
-            # Upload thumbnail if provided, else use auto-generated from Cloudinary
             if thumbnail_file:
                 thumbnail_result = cloudinary.uploader.upload(
                     thumbnail_file,
@@ -195,13 +203,11 @@ class ReelCreateSerializer(serializers.ModelSerializer):
                 )
                 validated_data['thumbnail_url'] = thumbnail_result['secure_url']
             else:
-                # Use Cloudinary's auto-generated thumbnail
                 validated_data['thumbnail_url'] = video_result['secure_url'].replace(
                     '/video/upload/', 
                     '/video/upload/so_0,w_720,h_1280,c_fill/'
                 ).replace('.mp4', '.jpg')
             
-            # Create the reel
             reel = Reel.objects.create(**validated_data)
             return reel
             
@@ -215,18 +221,16 @@ class ReelCreateSerializer(serializers.ModelSerializer):
 class ReelCommentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     user_name = serializers.CharField(source='user.shop_name', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     
     class Meta:
         model = ReelComment
-        fields = ('id', 'reel', 'user', 'user_name', 'text', 'created_at')
+        fields = ('id', 'reel', 'user', 'user_id', 'user_name', 'text', 'created_at')
         read_only_fields = ('user',)
     
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
-        
-        # Increment comments count
         reel = validated_data['reel']
         reel.comments_count += 1
         reel.save()
-        
         return super().create(validated_data)
