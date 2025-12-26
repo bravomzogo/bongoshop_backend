@@ -1,7 +1,8 @@
-# chat/urls.py - SIMPLEST FIX
+# chat/urls.py - UPDATED WITH SLASH REDIRECTS
 from django.urls import path
+from django.views.generic import RedirectView
 from .views import (
-    ConversationListView,  # This will be both root AND conversations list
+    ConversationListView,
     ConversationDetailView,
     CreateConversationView,
     MessageListView,
@@ -11,13 +12,15 @@ from .views import (
 )
 
 urlpatterns = [
-    # ✅ Make conversations list the root (like products app)
+    # Root with and without slash
     path('', ConversationListView.as_view(), name='chat-root'),
+    path('', ConversationListView.as_view(), name='chat-root-no-slash'),  # Also handle no slash
     
-    # Keep the conversations/ path for consistency
+    # Conversations with BOTH patterns
     path('conversations/', ConversationListView.as_view(), name='conversation-list'),
+    path('conversations', ConversationListView.as_view(), name='conversation-list-no-slash'),  # Add this!
     
-    # The rest stay the same
+    # The rest with slashes (should be fine)
     path('conversations/create/', CreateConversationView.as_view(), name='create-conversation'),
     path('conversations/<int:pk>/', ConversationDetailView.as_view(), name='conversation-detail'),
     path('conversations/<int:conversation_id>/messages/', MessageListView.as_view(), name='message-list'),
