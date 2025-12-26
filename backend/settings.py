@@ -18,7 +18,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY SETTINGS
 # ----------------------------------------------------
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "replace-me")
-DEBUG = True
+# Set DEBUG to False on Render
+DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*"]
 
 # ----------------------------------------------------
@@ -26,7 +27,7 @@ ALLOWED_HOSTS = ["*"]
 # ----------------------------------------------------
 ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"
-ASGI_APPLICATION = "backend.asgi.application"  # Fixed: should be 'backend' not 'config'
+ASGI_APPLICATION = "backend.asgi.application"
 
 # ----------------------------------------------------
 # INSTALLED APPS
@@ -46,7 +47,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "cloudinary",
-    "channels",  # Moved to proper place
+    "channels",
 
     # Local apps
     "accounts",
@@ -57,8 +58,6 @@ INSTALLED_APPS = [
 # ----------------------------------------------------
 # CHANNELS CONFIGURATION
 # ----------------------------------------------------
-# ASGI Application (already defined above, removed duplicate)
-# In-Memory (No Redis needed - Good for single server)
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer'
@@ -74,9 +73,9 @@ AUTH_USER_MODEL = "accounts.User"
 # MIDDLEWARE
 # ----------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # must be at top
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # FIXED: Added comma
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -89,11 +88,6 @@ MIDDLEWARE = [
 # CORS SETTINGS
 # ----------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = True
-# Or specific origins:
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",
-#     "http://localhost:5173",
-# ]
 
 # ----------------------------------------------------
 # REST FRAMEWORK SETTINGS
@@ -166,7 +160,7 @@ if not media_dir.exists():
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # optional
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -180,17 +174,29 @@ TEMPLATES = [
 ]
 
 # ----------------------------------------------------
-# DATABASE (SQLite default)
+# DATABASE CONFIGURATION (FIXED - CRITICAL)
 # ----------------------------------------------------
 import dj_database_url
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        ssl_require=not DEBUG,
-    )
-}
+# Get DATABASE_URL from environment (Render provides this)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# Always use DATABASE_URL if available
+if DATABASE_URL:
+    # Production database (Render PostgreSQL)
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, conn_health_checks=True)
+    }
+    print("✅ Production: Using PostgreSQL from DATABASE_URL")
+else:
+    # Development database (local SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+    print("⚠️ Development: Using SQLite")
 
 # ----------------------------------------------------
 # AUTHENTICATION BACKENDS
